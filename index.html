@@ -1,15 +1,157 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <link rel="stylesheet" href="#">
-    <script src="app.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>OpenAI Book Recommender</title>
+  <meta name="description" content="Pick a genre and let OpenAI suggest your next great read. Works as a browser-only demo on GitHub Pages.">
+  <meta name="color-scheme" content="light dark">
+  <link rel="icon" href="images/favicon.svg" type="image/svg+xml">
+
+  <!-- Sets the saved theme before the page paints, so there is no flash. -->
+  <script src="js/theme-init.js"></script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:ital,wght@0,400;0,600;0,800;0,900;1,400&display=swap">
+  <link rel="stylesheet" href="css/style.css">
+
+  <script src="js/demo-books.js" defer></script>
+  <script src="js/app.js" defer></script>
 </head>
 <body>
-  	<div id="output"></div>
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <!-- Living background: slowly drifting book spines -->
+  <div class="library-bg" aria-hidden="true">
+    <span class="drift-book"></span><span class="drift-book"></span><span class="drift-book"></span>
+    <span class="drift-book"></span><span class="drift-book"></span><span class="drift-book"></span>
+    <span class="drift-book"></span><span class="drift-book"></span><span class="drift-book"></span>
+  </div>
+
+  <header class="topbar">
+    <a class="brand" href="./">
+      <svg class="brand__icon" viewBox="0 0 32 32" aria-hidden="true">
+        <rect x="5" y="6" width="6" height="21" rx="1.5" />
+        <rect x="12.5" y="4" width="6" height="23" rx="1.5" />
+        <rect x="20" y="8" width="6" height="19" rx="1.5" transform="rotate(12 23 17.5)" />
+      </svg>
+      <span>Book&nbsp;Recommender</span>
+    </a>
+    <div class="topbar__right">
+      <span class="mode-badge" id="mode-badge">Checking…</span>
+      <button class="theme-toggle" id="theme-toggle" type="button" aria-label="Switch to dark theme">
+        <svg class="theme-toggle__sun" viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="12" r="4.5" />
+          <path d="M12 1.5v3M12 19.5v3M1.5 12h3M19.5 12h3M4.6 4.6l2.1 2.1M17.3 17.3l2.1 2.1M4.6 19.4l2.1-2.1M17.3 6.7l2.1-2.1" />
+        </svg>
+        <svg class="theme-toggle__moon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M20.5 14.5A8.5 8.5 0 0 1 9.5 3.5a8.5 8.5 0 1 0 11 11Z" />
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <main id="main" tabindex="-1">
+    <section class="hero">
+      <div class="hero__text reveal">
+        <p class="kicker">Your AI librarian</p>
+        <h1>What should I read&nbsp;next?</h1>
+        <p class="lead">
+          Pick a genre, choose how many books you want, and a friendly AI librarian
+          pulls fresh recommendations off the shelf for you.
+        </p>
+
+        <form class="picker" id="picker">
+          <div class="field">
+            <label for="genre">Genre</label>
+            <select id="genre" name="genre">
+              <option value="any">Surprise me</option>
+              <option value="classics">Classics</option>
+              <option value="science-fiction">Science fiction</option>
+              <option value="fantasy">Fantasy</option>
+              <option value="mystery">Mystery &amp; crime</option>
+              <option value="non-fiction">Non-fiction</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="count">How many books</label>
+            <select id="count" name="count">
+              <option value="3">3</option>
+              <option value="4">4</option>
+              <option value="5">5</option>
+              <option value="6" selected>6</option>
+              <option value="8">8</option>
+            </select>
+          </div>
+          <button class="btn btn--primary" id="recommend-btn" type="submit">
+            <svg class="btn__book" viewBox="0 0 24 24" aria-hidden="true">
+              <path class="btn__book-left" d="M12 6C9.5 4.5 6.5 4 3 4.5v14c3.5-.5 6.5 0 9 1.5" />
+              <path class="btn__book-right" d="M12 6c2.5-1.5 5.5-2 9-1.5v14c-3.5-.5-6.5 0-9 1.5" />
+              <path class="btn__book-page" d="M12 6c2-1.2 4.5-1.6 7-1.4v13" />
+            </svg>
+            <span>Recommend books</span>
+          </button>
+        </form>
+      </div>
+
+      <div class="hero__shelf reveal" aria-hidden="true">
+        <div class="shelf">
+          <span class="spine spine--1"></span>
+          <span class="spine spine--2"></span>
+          <span class="spine spine--3"></span>
+          <span class="spine spine--4"></span>
+          <span class="spine spine--5"></span>
+          <span class="spine spine--6"></span>
+          <span class="spine spine--7"></span>
+        </div>
+        <div class="shelf__board"></div>
+      </div>
+    </section>
+
+    <section class="stats reveal" aria-label="Shelf statistics">
+      <div class="stat">
+        <span class="stat__number" id="stat-count" data-count="0">0</span>
+        <span class="stat__label">books on your shelf</span>
+      </div>
+      <div class="stat">
+        <span class="stat__number" id="stat-oldest" data-count="0">0</span>
+        <span class="stat__label">oldest pick (year)</span>
+      </div>
+      <div class="stat">
+        <span class="stat__number" id="stat-newest" data-count="0">0</span>
+        <span class="stat__label">newest pick (year)</span>
+      </div>
+    </section>
+
+    <section class="results" aria-labelledby="results-title">
+      <div class="results__head">
+        <h2 id="results-title">Your reading list</h2>
+        <p class="status" id="status" role="status" aria-live="polite"></p>
+      </div>
+      <div class="book-grid" id="book-grid"></div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <p>
+      Made with OpenAI, Node.js &amp; vanilla JS ·
+      <a href="https://github.com/brutall100/openai-book-recommender">Source code</a> ·
+      MIT License
+    </p>
+  </footer>
+
+  <template id="book-template">
+    <article class="book reveal">
+      <div class="book__spine"></div>
+      <div class="book__body">
+        <p class="book__genre"></p>
+        <h3 class="book__title"></h3>
+        <p class="book__author"></p>
+        <p class="book__why"></p>
+        <p class="book__year"></p>
+      </div>
+    </article>
+  </template>
 </body>
 </html>
-
-
-
-
-
